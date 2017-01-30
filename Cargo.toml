@@ -1,0 +1,9 @@
+[package]
+name = "chelle"
+version = "0.1.0"
+authors = ["Antoine Niek <antoineniek@gmail.com>"]
+
+[dependencies]
+nix = "0.7.0"
+ansi_term = "0.9"
+time = "0.1"
