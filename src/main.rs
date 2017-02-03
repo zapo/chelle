@@ -39,11 +39,11 @@ fn read_line() -> io::Result<String> {
     Ok(buffer)
 }
 
-fn parse_args<'a>(line: &'a String) -> Vec<&'a str> {
+fn parse_args(line: &String) -> Vec<&str> {
     line.split_whitespace().collect()
 }
 
-fn run<'a>(args: &[&str]) -> nix::Result<()> {
+fn run(args: &[&str]) -> nix::Result<()> {
 
     match args.get(0) {
         Some(&"cd") => builtin::cd(args),
@@ -52,7 +52,7 @@ fn run<'a>(args: &[&str]) -> nix::Result<()> {
     }
 }
 
-fn exec<'a>(args: &[&str]) -> nix::Result<()> {
+fn exec(args: &[&str]) -> nix::Result<()> {
     let cargs: Vec<CString> = args.iter()
         .map(|s| CString::new(s.to_string()).unwrap())
         .collect();
