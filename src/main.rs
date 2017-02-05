@@ -6,7 +6,7 @@ use std::ffi::CString;
 use std::io::{self, Write};
 use nix::{unistd, sys};
 use ansi_term::Colour::{Green, Red};
-mod builtin;
+mod builtins;
 
 fn main() {
     prompt(Ok(()));
