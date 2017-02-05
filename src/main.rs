@@ -1,3 +1,5 @@
+#![feature(slice_patterns)]
+
 extern crate nix;
 extern crate ansi_term;
 extern crate time;
@@ -7,13 +9,18 @@ use std::io::{self, Write};
 use nix::{unistd, sys};
 use ansi_term::Colour::{Green, Red};
 mod builtins;
+mod commands;
+
+use commands::Command;
 
 fn main() {
     prompt(Ok(()));
 
     loop {
         let line = read_line().expect("can't read from stdin");
-        prompt(run(&parse_args(&line)));
+        let commands = commands::parse(&line);
+
+        prompt(run(&commands));
     }
 }
 
@@ -22,7 +29,7 @@ fn prompt(status: nix::Result<()>) {
     let cwd = unistd::getcwd().unwrap();
     let icon = match status {
         Ok(_) => Green.paint("v"),
-        Err(_) => Red.paint("x"),
+        Err(e) => Red.paint(format!("{}\nx", e.to_string())),
     };
 
     print!("{icon} {cwd} \n{time} $ ",
@@ -39,32 +46,37 @@ fn read_line() -> io::Result<String> {
     Ok(buffer)
 }
 
-fn parse_args(line: &String) -> Vec<&str> {
-    line.split_whitespace().collect()
+fn run(commands: &[Command]) -> nix::Result<()> {
+    for command in commands { exec(&command); }
+    sys::wait::wait().map(|_| ())
 }
 
-fn run(args: &[&str]) -> nix::Result<()> {
-
-    match args.get(0) {
-        Some(&"cd") => builtin::cd(args),
-        Some(&"echo") => builtin::echo(args),
-         _ => exec(args)
-    }
-}
-
-fn exec(args: &[&str]) -> nix::Result<()> {
-    let cargs: Vec<CString> = args.iter()
-        .map(|s| CString::new(s.to_string()).unwrap())
-        .collect();
-
+fn exec(command: &Command) -> nix::Result<()> {
     let result = try!(unistd::fork());
-    match result {
-        unistd::ForkResult::Parent { child } => {
-            sys::wait::waitpid(child, None).map(|_| ())
-        },
+    if result.is_parent() { return Ok(()); }
+
+    if command.fd.0 != 0 {
+        unistd::dup2(command.fd.0, 0);
+        unistd::close(command.fd.0);
+    }
+
+    if command.fd.1 != 1 {
+        unistd::dup2(command.fd.1, 1);
+        unistd::close(command.fd.1);
+    }
+
+    match command.args.get(0) {
+        Some(&"cd") => builtins::cd(&command.args),
+        Some(&"echo") => builtins::echo(&command.args),
         _ => {
-            try!(unistd::execvp(&cargs[0], &cargs));
+            let cargs: Vec<CString> = command.args.iter()
+                .map(|s| CString::new(s.to_string()).unwrap())
+                .collect();
+
+            unistd::execvp(&cargs[0], &cargs);
             unreachable!()
         }
-    }
+    };
+    std::process::exit(0);
+    unreachable!()
 }

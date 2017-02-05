@@ -2,6 +2,7 @@ extern crate nix;
 
 use std::env::home_dir;
 use nix::unistd;
+use std::io::{self, Write};
 
 pub fn cd(args: &[&str]) -> nix::Result<()> {
     let path = match args.get(1) {
@@ -14,5 +15,6 @@ pub fn cd(args: &[&str]) -> nix::Result<()> {
 
 pub fn echo(args: &[&str]) -> nix::Result<()> {
     println!("{}", args[1..].join(" "));
+    io::stdout().flush();
     Ok(())
 }
