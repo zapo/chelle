@@ -1,3 +1,5 @@
+#![feature(slice_patterns)]
+
 extern crate nix;
 extern crate ansi_term;
 extern crate time;
@@ -40,7 +42,7 @@ fn prompt(status: nix::Result<()>) {
 
 fn read_line() -> io::Result<String> {
     let mut buffer = String::new();
-    try!(io::stdin().read_line(&mut buffer));
+    io::stdin().read_line(&mut buffer)?;
     Ok(buffer)
 }
 
@@ -50,7 +52,7 @@ fn run(commands: &[Command]) -> nix::Result<()> {
 }
 
 fn exec(command: &Command) -> nix::Result<()> {
-    let result = try!(unistd::fork());
+    let result = unistd::fork()?;
     if result.is_parent() { return Ok(()); }
 
     if command.fd.0 != 0 {
@@ -63,7 +65,7 @@ fn exec(command: &Command) -> nix::Result<()> {
         unistd::close(command.fd.1)?;
     }
 
-    try!(match command.args.get(0) {
+    match command.args.get(0) {
         Some(&"cd") => builtins::cd(&command.args),
         Some(&"echo") => builtins::echo(&command.args),
         _ => {
@@ -74,6 +76,6 @@ fn exec(command: &Command) -> nix::Result<()> {
             unistd::execvp(&cargs[0], &cargs)?;
             unreachable!()
         }
-    });
+    }?;
     std::process::exit(0);
 }
