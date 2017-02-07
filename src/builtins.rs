@@ -15,6 +15,6 @@ pub fn cd(args: &[&str]) -> nix::Result<()> {
 
 pub fn echo(args: &[&str]) -> nix::Result<()> {
     println!("{}", args[1..].join(" "));
-    io::stdout().flush();
+    io::stdout().flush().unwrap();
     Ok(())
 }

@@ -1,8 +1,5 @@
 use std::os::unix::io::RawFd;
 use nix::unistd;
-use std::slice::Windows;
-
-
 
 #[derive(Debug)]
 pub struct Command<'a> {

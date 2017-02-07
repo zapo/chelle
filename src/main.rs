@@ -47,7 +47,7 @@ fn read_line() -> io::Result<String> {
 }
 
 fn run(commands: &[Command]) -> nix::Result<()> {
-    for command in commands { exec(&command); }
+    for command in commands { exec(&command)? }
     sys::wait::wait().map(|_| ())
 }
 
@@ -56,16 +56,16 @@ fn exec(command: &Command) -> nix::Result<()> {
     if result.is_parent() { return Ok(()); }
 
     if command.fd.0 != 0 {
-        unistd::dup2(command.fd.0, 0);
-        unistd::close(command.fd.0);
+        unistd::dup2(command.fd.0, 0)?;
+        unistd::close(command.fd.0)?;
     }
 
     if command.fd.1 != 1 {
-        unistd::dup2(command.fd.1, 1);
-        unistd::close(command.fd.1);
+        unistd::dup2(command.fd.1, 1)?;
+        unistd::close(command.fd.1)?;
     }
 
-    match command.args.get(0) {
+    try!(match command.args.get(0) {
         Some(&"cd") => builtins::cd(&command.args),
         Some(&"echo") => builtins::echo(&command.args),
         _ => {
@@ -73,10 +73,9 @@ fn exec(command: &Command) -> nix::Result<()> {
                 .map(|s| CString::new(s.to_string()).unwrap())
                 .collect();
 
-            unistd::execvp(&cargs[0], &cargs);
+            unistd::execvp(&cargs[0], &cargs)?;
             unreachable!()
         }
-    };
+    });
     std::process::exit(0);
-    unreachable!()
 }
