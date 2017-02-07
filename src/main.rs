@@ -1,5 +1,3 @@
-#![feature(slice_patterns)]
-
 extern crate nix;
 extern crate ansi_term;
 extern crate time;
