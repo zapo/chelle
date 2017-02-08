@@ -48,7 +48,10 @@ fn read_line() -> io::Result<String> {
 
 fn run(commands: &[Command]) -> nix::Result<()> {
     for command in commands { exec(&command)? }
-    sys::wait::wait().map(|_| ())
+    match commands.is_empty() {
+        true => Ok(()),
+        false => sys::wait::wait().map(|_| ()),
+    }
 }
 
 fn exec(command: &Command) -> nix::Result<()> {
@@ -65,13 +68,15 @@ fn exec(command: &Command) -> nix::Result<()> {
         unistd::close(command.fd.1)?;
     }
 
-    match command.args.get(0) {
-        Some(&"cd") => builtins::cd(&command.args),
-        Some(&"echo") => builtins::echo(&command.args),
+    match command.path {
+        "cd" => builtins::cd(&command.args),
+        "echo" => builtins::echo(&command.args),
         _ => {
-            let cargs: Vec<CString> = command.args.iter()
+            let mut cargs: Vec<CString> = command.args.iter()
                 .map(|s| CString::new(s.to_string()).unwrap())
                 .collect();
+
+            cargs.insert(0, CString::new(command.path.to_string()).unwrap());
 
             unistd::execvp(&cargs[0], &cargs)?;
             unreachable!()
