@@ -47,40 +47,48 @@ fn read_line() -> io::Result<String> {
 }
 
 fn run(commands: &[Command]) -> nix::Result<()> {
-    for command in commands { exec(&command)? }
-    match commands.is_empty() {
-        true => Ok(()),
-        false => sys::wait::wait().map(|_| ()),
+    let mut prev: Option<&Command> = None;
+
+    let pids = commands.iter().map(|command| {
+        if let Some(cmd) = prev {
+            if cmd.fd.1 != 1 { unistd::close(cmd.fd.1).unwrap(); }
+            if cmd.fd.0 != 0 { unistd::close(cmd.fd.0).unwrap(); }
+        }
+
+        let pid = exec(&command);
+        prev = Some(&command);
+        pid
+    });
+
+    for pid in pids {
+        sys::wait::waitpid(pid.unwrap(), None).map(|_| ())?
     }
+
+    Ok(())
 }
 
-fn exec(command: &Command) -> nix::Result<()> {
+fn exec(command: &Command) -> Result<i32, nix::Error> {
     let result = unistd::fork()?;
-    if result.is_parent() { return Ok(()); }
+    if let nix::unistd::ForkResult::Parent { child } = result {
+        return Ok(child);
+    }
 
     if command.fd.0 != 0 {
-        unistd::dup2(command.fd.0, 0)?;
-        unistd::close(command.fd.0)?;
+        unistd::dup2(command.fd.0, 0).unwrap();
+        unistd::close(command.fd.0).unwrap();
     }
 
     if command.fd.1 != 1 {
-        unistd::dup2(command.fd.1, 1)?;
-        unistd::close(command.fd.1)?;
+        unistd::dup2(command.fd.1, 1).unwrap();
+        unistd::close(command.fd.1).unwrap();
     }
 
-    match command.path {
-        "cd" => builtins::cd(&command.args),
-        "echo" => builtins::echo(&command.args),
-        _ => {
-            let mut cargs: Vec<CString> = command.args.iter()
-                .map(|s| CString::new(s.to_string()).unwrap())
-                .collect();
+    let mut cargs: Vec<CString> = command.args.iter()
+        .map(|s| CString::new(s.to_string()).unwrap())
+        .collect();
 
-            cargs.insert(0, CString::new(command.path.to_string()).unwrap());
+    cargs.insert(0, CString::new(command.path.to_string()).unwrap());
 
-            unistd::execvp(&cargs[0], &cargs)?;
-            unreachable!()
-        }
-    }?;
-    std::process::exit(0);
+    unistd::execvp(&cargs[0], &cargs)?;
+    unreachable!()
 }

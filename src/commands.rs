@@ -36,7 +36,6 @@ pub fn parse(line: &str) -> Vec<Command> {
                 }
             }
 
-
             commands.push(to);
         }
     }
